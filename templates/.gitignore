@@ -1,0 +1,42 @@
+# Recommended .gitignore template — copy to project root.
+
+# Secrets
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+credentials.json
+secrets.json
+
+# Dependencies
+node_modules/
+.pnpm-store/
+venv/
+.venv/
+__pycache__/
+*.pyc
+
+# Build artifacts
+dist/
+build/
+out/
+*.tsbuildinfo
+
+# Logs
+*.log
+logs/
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+*.swp
+.vscode/
+.idea/
+
+# Coverage / test output
+coverage/
+.nyc_output/
+
+# Claude Code (project settings ARE committed; *.local.json is not)
+.claude/settings.local.json
