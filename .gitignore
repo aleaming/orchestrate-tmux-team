@@ -1,0 +1,44 @@
+# Secrets — NEVER commit
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+credentials.json
+secrets.json
+
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build artifacts
+dist/
+build/
+out/
+*.tsbuildinfo
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+logs/
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.vscode/
+.idea/
+
+# Coverage / test output
+coverage/
+.nyc_output/
+
+# Claude Code local-only settings (project settings.json IS committed; .local.json is not)
+.claude/settings.local.json
+.claude/*.local.md
+
+# Worktrees created by /spawn-team — never commit these to the host repo
+.claude/worktrees/
