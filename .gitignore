@@ -43,6 +43,7 @@ coverage/
 # Worktrees created by /spawn-team — never commit these to the host repo
 .claude/worktrees/
 
-# Personal session memory and in-progress planning documents
+# Personal session memory, in-progress planning documents, and session handoffs
 memory/
 plans/
+.claude/handoffs/
