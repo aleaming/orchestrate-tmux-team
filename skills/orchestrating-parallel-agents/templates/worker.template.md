@@ -5,6 +5,8 @@ Auto mode is on. Be decisive.
 
 {{PLAN_REF_BLOCK}}
 
+{{MATCHED_AGENT_BLOCK}}
+
 ## Status protocol
 
 This is a state-machine handshake with the coordinator. Write **one of these states** to `STATUS.md` (always overwrite, never append):

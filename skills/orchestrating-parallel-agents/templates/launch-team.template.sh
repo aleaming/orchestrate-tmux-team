@@ -22,7 +22,7 @@ WORKTREE_PREFIX="{{WORKTREE_PREFIX}}"
 BRANCH_PREFIX="{{BRANCH_PREFIX}}"
 COORD_COLOR={{COORD_COLOR}}
 
-# name | branch suffix | tmux 256-color
+# name | branch suffix | tmux 256-color | matched agent (specialist name or "GENERIC")
 WORKERS=(
   {{WORKERS}}
 )
@@ -70,7 +70,7 @@ wait_for_panes_stable() {
 cmd_status() {
   printf '\n  Worker status (under %s)\n  ─────────────────────\n' "$WORKTREE_ROOT"
   for spec in "${WORKERS[@]}"; do
-    IFS='|' read -r name _ _ <<< "$spec"
+    IFS='|' read -r name _ _ _ <<< "$spec"
     s="$WORKTREE_ROOT/${WORKTREE_PREFIX}-$name/STATUS.md"
     if [[ ! -d "$WORKTREE_ROOT/${WORKTREE_PREFIX}-$name" ]]; then
       printf '   ?  %-12s  no worktree\n' "$name"
@@ -103,7 +103,7 @@ cmd_cleanup() {
   # Detect dirty worktrees and confirm before destruction
   local dirty=()
   for spec in "${WORKERS[@]}"; do
-    IFS='|' read -r name _ _ <<< "$spec"
+    IFS='|' read -r name _ _ _ <<< "$spec"
     wt="$WORKTREE_ROOT/${WORKTREE_PREFIX}-$name"
     if [[ -d "$wt" ]]; then
       if [[ -n "$(git -C "$wt" status --porcelain 2>/dev/null)" ]]; then
@@ -122,7 +122,7 @@ cmd_cleanup() {
   fi
 
   for spec in "${WORKERS[@]}"; do
-    IFS='|' read -r name branch _ <<< "$spec"
+    IFS='|' read -r name branch _ _ <<< "$spec"
     wt="$WORKTREE_ROOT/${WORKTREE_PREFIX}-$name"
     br="${BRANCH_PREFIX}$branch"
     if [[ -d "$wt" ]]; then
@@ -180,7 +180,7 @@ cmd_launch() {
 
   # Sanity-check rendered prompts
   for spec in "${WORKERS[@]}"; do
-    IFS='|' read -r name _ _ <<< "$spec"
+    IFS='|' read -r name _ _ _ <<< "$spec"
     if [[ ! -f "$PROMPT_DIR/$name.md" ]]; then
       echo "✗ Missing prompt: $PROMPT_DIR/$name.md" >&2
       exit 1
@@ -193,7 +193,7 @@ cmd_launch() {
 
   # Branch-exists guard (P0 patch — actionable error)
   for spec in "${WORKERS[@]}"; do
-    IFS='|' read -r _ branch _ <<< "$spec"
+    IFS='|' read -r _ branch _ _ <<< "$spec"
     br="${BRANCH_PREFIX}$branch"
     if git show-ref --quiet "refs/heads/$br"; then
       echo "✗ Branch '$br' already exists." >&2
@@ -207,7 +207,7 @@ cmd_launch() {
 
   # Create worktrees from current HEAD; track for rollback on failure.
   for spec in "${WORKERS[@]}"; do
-    IFS='|' read -r name branch _ <<< "$spec"
+    IFS='|' read -r name branch _ _ <<< "$spec"
     wt="$WORKTREE_ROOT/${WORKTREE_PREFIX}-$name"
     br="${BRANCH_PREFIX}$branch"
     if [[ ! -d "$wt" ]]; then
@@ -253,14 +253,20 @@ cmd_launch() {
 
   # Worker panes
   for i in "${!WORKERS[@]}"; do
-    IFS='|' read -r name branch color <<< "${WORKERS[$i]}"
+    IFS='|' read -r name branch color agent <<< "${WORKERS[$i]}"
+    # Render "[<agent>]" suffix only when a specialist was matched.
+    if [[ -n "${agent:-}" && "$agent" != "GENERIC" ]]; then
+      agent_suffix=" [${agent}]"
+    else
+      agent_suffix=""
+    fi
     wt="$WORKTREE_ROOT/${WORKTREE_PREFIX}-$name"
     tmux split-window -t "${SESSION}:team" -c "$wt"
     tmux select-layout -t "${SESSION}:team" tiled
     # L5 — split into two send-keys: first executes the display command,
     # second pre-types 'claude' onto the next prompt without C-m.
     tmux send-keys -t "${SESSION}:team" \
-      "${UNALIAS}clear; printf '\\033[1;38;5;${color}m▼ WORKER: ${name}\\nBranch:   ${BRANCH_PREFIX}${branch}\\nWorktree: $(pwd)\\n▲\\033[0m\\n\\n── TASK ──\\n'; command cat TASK.md; printf '\\n\\n▶ Hit Enter to launch claude, then paste the task above as your first message.\\n'" C-m
+      "${UNALIAS}clear; printf '\\033[1;38;5;${color}m▼ WORKER: ${name}${agent_suffix}\\nBranch:   ${BRANCH_PREFIX}${branch}\\nWorktree: $(pwd)\\n▲\\033[0m\\n\\n── TASK ──\\n'; command cat TASK.md; printf '\\n\\n▶ Hit Enter to launch claude, then paste the task above as your first message.\\n'" C-m
     tmux send-keys -t "${SESSION}:team" "claude"
   done
 
@@ -276,7 +282,7 @@ cmd_launch() {
       color=$COORD_COLOR
     else
       for spec in "${WORKERS[@]}"; do
-        IFS='|' read -r wname _ wcolor <<< "$spec"
+        IFS='|' read -r wname _ wcolor _ <<< "$spec"
         if [[ "$cwd" == "$WORKTREE_ROOT/${WORKTREE_PREFIX}-$wname" ]]; then
           color=$wcolor
           break

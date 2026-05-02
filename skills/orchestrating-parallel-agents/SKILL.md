@@ -8,7 +8,7 @@ description: >
   Generates the launcher script + prompt templates per project. Triggers on:
   "spawn a team", "/spawn-team", "parallel agents", "tmux orchestration",
   "agent team", "worker team", "orchestrate workers".
-version: 1.0.0
+version: 1.1.0
 ---
 
 # Orchestrating parallel agents
@@ -63,6 +63,16 @@ Per worker, gather: name (slug), scope files (which paths), task summary (2-3 se
 
 Optional: pre-staging spec (if any worker imports another's not-yet-committed output). See `references/lessons-from-the-trenches.md` § L8.
 
+### Step C.5 — Discover agents and match best fit (v1.1)
+
+1. **Discover.** Glob `~/.claude/agents/*.md` and `~/.claude/agents/*/AGENT.md`. For each file, parse YAML frontmatter and extract `name` + `description`. Build a registry. If empty, skip matching — every worker gets `GENERIC`.
+2. **Match.** For each worker, run the matching prompt from `references/agent-matching.md` (one LLM call per worker; sonnet is sufficient). Parse the JSON response: `{agent, confidence, rationale}`.
+3. **Validate.** The returned `agent` MUST exist character-for-character in the registry, or be the literal `"GENERIC"`. Otherwise, downgrade to `GENERIC` and log.
+4. **Escalate low confidence.** For every worker whose confidence is `low`, surface to the operator via `AskUserQuestion`: present the matcher's pick, 1–2 next-best candidates, and `GENERIC`. Operator's choice overrides.
+5. **Stash.** Persist `worker.matched_agent` (string) and `worker.match_confidence` (string) for downstream rendering in Steps D and F.
+
+Full procedure, prompt text, JSON schema, and defenses: `references/agent-matching.md`.
+
 ### Step D — Render `scripts/launch-team.sh`
 
 Read `templates/launch-team.template.sh` and substitute placeholders:
@@ -70,7 +80,7 @@ Read `templates/launch-team.template.sh` and substitute placeholders:
 - `{{WORKTREE_PREFIX}}` = `<feature-name>`
 - `{{BRANCH_PREFIX}}` = `<parent-branch>-`
 - `{{COORD_COLOR}}` = `226`
-- `{{WORKERS}}` = newline-joined `"<name>|<branch-suffix>|<color>"` lines
+- `{{WORKERS}}` = newline-joined `"<name>|<branch-suffix>|<color>|<matched-agent-or-GENERIC>"` lines
 - `{{STAGED_FILES}}` = pre-staging lines or empty
 
 Write to `<repo>/scripts/launch-team.sh`. `chmod +x`.
@@ -133,4 +143,5 @@ The launcher's `STAGED_FILES` array encodes pre-staging: `"src-abs|workerA,worke
 - `references/lessons-from-the-trenches.md` — the 9 codified defenses (L1–L9) and *why* each line of the launcher exists.
 - `references/architecture.md` — branch / worktree / tmux topology, STATUS state machine, failure handling, bare-repo fallback.
 - `references/auto-launch-via-tmux-paste.md` — the load-buffer / paste-buffer / bracketed-paste mechanism for autonomous worker injection (L6).
+- `references/agent-matching.md` — v1.1 specialist agent discovery + matching prompt + JSON schema + low-confidence escalation pattern.
 - `workflows/full-orchestration.md` — end-to-end walkthrough including the failure-recovery playbook.

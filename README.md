@@ -14,9 +14,24 @@ Adds the `/spawn-team` slash command. Useful for features that split cleanly int
 The skill walks you through:
 1. Confirming git state (must be on a feature branch).
 2. Eliciting the worker breakdown (names, scopes, dependency order).
-3. Rendering `scripts/launch-team.sh` and `.claude/team-prompts/*.md`.
-4. Optional auto-launch (with explicit per-launch consent for `--dangerously-skip-permissions`).
-5. Walking through merge → verification → push → PR.
+3. **Scanning `~/.claude/agents/` and matching each worker to a best-fit specialist agent** (v1.1).
+4. Rendering `scripts/launch-team.sh` and `.claude/team-prompts/*.md` (with the matched agent embedded in each worker's `TASK.md`).
+5. Optional auto-launch (with explicit per-launch consent for `--dangerously-skip-permissions`).
+6. Walking through merge → verification → push → PR.
+
+## Agent matching (v1.1)
+
+When you spawn a team, the skill scans your installed agents at `~/.claude/agents/` and uses an LLM-driven matcher to pick the best-fit specialist for each worker's scope:
+
+- A worker scoped to `src/api/*.py` with FastAPI/Pydantic context → matched to `python-pro`
+- A worker scoped to `src/components/*.tsx` → matched to `frontend-developer` or `typescript-pro`
+- A worker scoped to `deploy/k8s/*.yaml` → matched to `GENERIC` (no specialist applies)
+
+The matched agent appears:
+- In the worker's pane header: `▼ WORKER: api [python-pro]`
+- As a recommended specialist block at the top of the worker's `TASK.md`, instructing the worker's claude session to delegate via the `Agent` tool.
+
+Low-confidence matches surface to the operator via a follow-up prompt, listing the top candidates plus `GENERIC`. See `skills/orchestrating-parallel-agents/references/agent-matching.md` for the matching prompt design and defenses (injection guard, hallucination guard, empty-registry handling).
 
 ## What you get
 
