@@ -27,6 +27,20 @@ Optional team-level questions:
 - **Pre-staging?** "Does any worker import from another worker's not-yet-committed file?" If yes, ask for source path, target workers, and dest relative path. Default: none.
 - **Auto-launch policy?** Three options: manual / auto-without-flag / auto-with-`--dangerously-skip-permissions`. Default: manual. (See L7.)
 
+## Step 2.5 — Discover agents and match (v1.1)
+
+Sits between elicitation (Step 2) and rendering (Step 3). Three substeps:
+
+1. **Discover.** Glob `~/.claude/agents/*.md` and `~/.claude/agents/*/AGENT.md`. Parse YAML frontmatter; build registry of `{name, description}`. If empty, every worker gets `matched_agent = "GENERIC"` and skip the rest.
+
+2. **Match.** For each worker, run the matcher prompt from `references/agent-matching.md` (one LLM call per worker; sonnet is sufficient). Parse JSON: `{agent, confidence, rationale}`. Validate `agent` against the registry; downgrade unrecognized names to `GENERIC`.
+
+3. **Escalate.** For each `confidence == "low"` worker, present the operator with an `AskUserQuestion` listing the matcher's pick + 1–2 next-best candidates + `GENERIC`. Operator's choice wins.
+
+Output: each worker carries `matched_agent` (string) and `match_confidence` (string) into Step 3 rendering.
+
+Full procedure, prompt text, defenses (injection guard, hallucination guard, empty-registry handling): `references/agent-matching.md`.
+
 ## Step 3 — Render artifacts
 
 For each rendered file, substitute `{{...}}` placeholders and check that no markers remain.
@@ -41,7 +55,7 @@ Render from `templates/launch-team.template.sh`. Substitutions:
 | `{{WORKTREE_PREFIX}}` | `<feature-name>` |
 | `{{BRANCH_PREFIX}}` | `feature/<feature-name>-` (or whatever the parent branch is + `-`) |
 | `{{COORD_COLOR}}` | `226` (yellow) |
-| `{{WORKERS}}` | One line per worker: `"<name>\|<branch-suffix>\|<color-256>"` |
+| `{{WORKERS}}` | One line per worker: `"<name>\|<branch-suffix>\|<color-256>\|<matched-agent-or-GENERIC>"` (4-field schema, v1.1) |
 | `{{STAGED_FILES}}` | Pre-staging spec lines, or empty |
 
 After rendering: `chmod +x scripts/launch-team.sh && bash -n scripts/launch-team.sh`.
@@ -65,7 +79,21 @@ Render from `templates/coordinator.template.md`. Substitutions:
 
 ### `.claude/team-prompts/<worker>.md` (one per worker)
 
-Render from `templates/worker.template.md`. Substitutions per worker. The `{{PRE_STAGED_BLOCK}}` is empty unless this worker received a pre-staged file.
+Render from `templates/worker.template.md`. Substitutions per worker:
+
+| Placeholder | Value source |
+|---|---|
+| `{{WORKER_NAME}}` | worker slug |
+| `{{WORKER_EMOJI}}` | per-worker color emoji (🟦/🟧/🟩/🟪/🟨) |
+| `{{BRANCH}}` | full branch name |
+| `{{PLAN_REF_BLOCK}}` | optional `~/.claude/plans/...` reference, empty if none |
+| `{{MATCHED_AGENT_BLOCK}}` | v1.1 — `## Recommended specialist:` block when worker has a non-GENERIC match; empty otherwise |
+| `{{PRE_STAGED_BLOCK}}` | non-empty only if this worker received a pre-staged file (L8) |
+| `{{TASK_SUMMARY}}` | 2–3 sentences from elicitation |
+| `{{SCOPE_FILES}}` | bullet list of files this worker may modify |
+| `{{HARD_CONSTRAINTS}}` | numbered constraints |
+| `{{COMMIT_MESSAGE}}` | literal `git commit -m "..."` command |
+| `{{SESSION}}` | tmux session name |
 
 ## Step 4 — Smoke test
 

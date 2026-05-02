@@ -130,6 +130,22 @@ The orchestrate-tmux-team repo itself has no `package.json`. The skill detects p
 
 If the user wants different verify commands than the auto-detect chooses, they can edit `.claude/team-prompts/coordinator.md` after generation. The plugin doesn't hold them to the auto-detected choice.
 
+## Agent matching layer (v1.1)
+
+After worker elicitation but before artifact rendering, the skill scans `~/.claude/agents/` and matches each worker to a best-fit specialist. The flow:
+
+```
+elicit workers (Step C) → discover agents → match per worker → escalate low-confidence → render (Step D+)
+                          (glob frontmatter)  (1 LLM call/each)  (AskUserQuestion)
+```
+
+Each worker carries a `matched_agent` field (specialist name or `GENERIC`) and a `match_confidence` (`high|medium|low`) by the time rendering begins. Two artifacts use these:
+
+- **Worker `TASK.md`** — gets a `## Recommended specialist:` header block (omitted for GENERIC).
+- **Pane header** — appends `[<agent>]` to the worker name line (omitted for GENERIC).
+
+The matching layer's full procedure, prompt design (with prompt-injection and hallucination defenses), JSON output schema, and confidence-handling rubric live in `references/agent-matching.md`. It is loaded only when the skill activates; this architecture doc just records that the layer exists between Steps C and D.
+
 ## Why these primitives
 
 **Why git worktrees vs branch-switching?** Filesystem isolation. Each worker can run its own dev server, modify the same paths, and never trip over the others. Branch-switching forces sequential operation in the same working tree.
