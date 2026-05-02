@@ -6,6 +6,8 @@ The {{N_WORKERS}} workers are operating in parallel git worktrees under `.claude
 **Workers in this team:**
 {{WORKER_LIST_BULLETS}}
 
+{{MATCHED_AGENT_BLOCK}}
+
 ## Phase 1 — Watch
 
 Poll for completion. Each worker writes one of these states to `STATUS.md`:

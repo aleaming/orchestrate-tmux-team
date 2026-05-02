@@ -44,7 +44,7 @@ The `.claude/worktrees/` dir is in `.gitignore` (added by the plugin's bootstrap
 
 `tiled` layout. Each pane runs in its respective `cwd` — the launcher uses `pane_current_path` to identify roles (L4), so coloring and status checks are stable even after `kill-pane` reindexes panes.
 
-For N > 4 workers, the layout becomes cramped on typical terminals. Use a separate terminal session or a wider monitor; switching to `tmux new-window` per worker is a v1.1 enhancement.
+**Soft cap (v1.2):** the skill defaults to a maximum of 5 workers + 1 coordinator = 6 panes. At that count, the tiled layout fits comfortably on a 1440p+ display and is workable but tight on a typical 1080p laptop. The skill warns and asks for confirmation when N > 5; the cap is advisory, not enforced. Switching to `tmux new-window` per worker remains a deferred v1.3 enhancement for very wide teams.
 
 ## STATUS state machine
 
@@ -139,12 +139,13 @@ elicit workers (Step C) → discover agents → match per worker → escalate lo
                           (glob frontmatter)  (1 LLM call/each)  (AskUserQuestion)
 ```
 
-Each worker carries a `matched_agent` field (specialist name or `GENERIC`) and a `match_confidence` (`high|medium|low`) by the time rendering begins. Two artifacts use these:
+Each worker carries a `matched_agent` field (specialist name or `GENERIC`) and a `match_confidence` (`high|medium|low`) by the time rendering begins. The **coordinator pane** is also matched (v1.2) — typically against an orchestrator-class agent like `project-supervisor-orchestrator`. Three artifacts use these fields:
 
 - **Worker `TASK.md`** — gets a `## Recommended specialist:` header block (omitted for GENERIC).
-- **Pane header** — appends `[<agent>]` to the worker name line (omitted for GENERIC).
+- **Coordinator `coordinator.md`** (v1.2) — same `## Recommended specialist:` block, this time recommending an orchestrator-class agent for the merge/verify/PR sequence.
+- **Pane header** — appends `[<agent>]` to the worker name line and `[<coordinator-agent>]` after the COORDINATOR label (omitted for GENERIC).
 
-The matching layer's full procedure, prompt design (with prompt-injection and hallucination defenses), JSON output schema, and confidence-handling rubric live in `references/agent-matching.md`. It is loaded only when the skill activates; this architecture doc just records that the layer exists between Steps C and D.
+The matching layer's full procedure, prompt design (with prompt-injection and hallucination defenses), JSON output schema, the canned coordinator task brief, and confidence-handling rubric live in `references/agent-matching.md`. It is loaded only when the skill activates; this architecture doc just records that the layer exists between Steps C and D.
 
 ## Why these primitives
 

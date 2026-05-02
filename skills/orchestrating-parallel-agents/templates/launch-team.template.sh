@@ -21,6 +21,7 @@ SESSION="{{SESSION}}"
 WORKTREE_PREFIX="{{WORKTREE_PREFIX}}"
 BRANCH_PREFIX="{{BRANCH_PREFIX}}"
 COORD_COLOR={{COORD_COLOR}}
+COORDINATOR_AGENT="{{COORDINATOR_AGENT}}"   # v1.2 — orchestrator-class agent or "GENERIC"
 
 # name | branch suffix | tmux 256-color | matched agent (specialist name or "GENERIC")
 WORKERS=(
@@ -247,9 +248,16 @@ cmd_launch() {
   # L2 — bypass cat=bat alias on every pane shell command
   UNALIAS='unalias cat 2>/dev/null; '
 
+  # v1.2 — show matched orchestrator-class agent in the coordinator header.
+  if [[ -n "${COORDINATOR_AGENT:-}" && "$COORDINATOR_AGENT" != "GENERIC" ]]; then
+    coord_agent_suffix=" [${COORDINATOR_AGENT}]"
+  else
+    coord_agent_suffix=""
+  fi
+
   # Coordinator pane (pane 0 — main repo cwd)
   tmux send-keys -t "${SESSION}:team.0" \
-    "${UNALIAS}clear; printf '\\033[1;38;5;${COORD_COLOR}m═══════════════════════════════════════\\n  🎯 COORDINATOR  (branch: $(git rev-parse --abbrev-ref HEAD))\\n  Watches workers; merges when STATUS.md = READY\\n═══════════════════════════════════════\\033[0m\\n\\n'; command cat .claude/team-prompts/coordinator.md; printf '\\n\\n── Tip: bash scripts/launch-team.sh --status to poll ──\\n'" C-m
+    "${UNALIAS}clear; printf '\\033[1;38;5;${COORD_COLOR}m═══════════════════════════════════════\\n  🎯 COORDINATOR${coord_agent_suffix}  (branch: $(git rev-parse --abbrev-ref HEAD))\\n  Watches workers; merges when STATUS.md = READY\\n═══════════════════════════════════════\\033[0m\\n\\n'; command cat .claude/team-prompts/coordinator.md; printf '\\n\\n── Tip: bash scripts/launch-team.sh --status to poll ──\\n'" C-m
 
   # Worker panes
   for i in "${!WORKERS[@]}"; do

@@ -156,6 +156,42 @@ Output:
 {"agent": "typescript-pro", "confidence": "medium", "rationale": "TS type generation overlaps with typescript-pro, but schema authoring is broader than its example scope."}
 ```
 
+## Coordinator matching (v1.2)
+
+The same matcher runs once more, this time for the **coordinator pane**. Unlike workers (whose tasks are elicited per team), the coordinator's task is canned and identical across teams: watch STATUS.md, dry-run merge, real merge, verify, push, PR.
+
+### Canned coordinator task brief
+
+```
+<worker_task>
+name: coordinator
+scope_files: <main repo, all paths under feature branch>
+summary: Coordinate {{N_WORKERS}} parallel git worktree workers. Watch STATUS.md state machine; when all workers report READY, perform pre-merge dry-runs, real merges in dependency order, project verification (lint/typecheck/test), and finally git push + gh pr create.
+constraints: 1. No code changes — only git/CI orchestration.  2. Abort merge sequence if any worker is FAILED/BLOCKED.  3. Run pre-merge dry-runs before any real merge.  4. Surface verification failures clearly.
+</worker_task>
+```
+
+Feed this through the same matcher prompt with the same registry. The expected outcomes:
+
+| Registry contains | Expected match | Confidence |
+|---|---|---|
+| `project-supervisor-orchestrator` | `project-supervisor-orchestrator` | high |
+| `research-orchestrator` (only) | `research-orchestrator` | medium (research-flavored, but orchestration is a fit) |
+| Neither | `GENERIC` | high |
+
+The matcher's output for the coordinator goes to a separate field — `coordinator_matched_agent` — that flows into:
+
+- `templates/coordinator.template.md` via `{{MATCHED_AGENT_BLOCK}}` (a "Recommended specialist" section at the top, instructing `Agent(subagent_type=…)` for the merge/verify/PR sequence)
+- `templates/launch-team.template.sh` via `{{COORDINATOR_AGENT}}` (renders into a `COORDINATOR_AGENT="…"` shell variable; the coord pane header shows `[<agent>]` suffix when non-GENERIC)
+
+### Why match the coordinator at all?
+
+Two reasons:
+1. **Orchestrator-class agents like `project-supervisor-orchestrator` are designed for exactly this work** — multi-step workflow execution with branching logic on intermediate state. Letting the coordinator delegate to one means the merge/verify/PR sequence runs through a specialist's playbook instead of generic claude.
+2. **Symmetry with workers** — operators see consistent UI (every pane has either `[<agent>]` or no suffix). No special-case rendering for the coord.
+
+If the registry has no orchestrator-class agent, fall back to GENERIC. The coord pane just runs the literal commands in coordinator.md without a delegating Agent call. This is the v1.0/v1.1 behavior preserved as the default.
+
 ## Confidence handling
 
 After matching all workers, inspect the confidence values:

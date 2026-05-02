@@ -8,7 +8,7 @@ description: >
   Generates the launcher script + prompt templates per project. Triggers on:
   "spawn a team", "/spawn-team", "parallel agents", "tmux orchestration",
   "agent team", "worker team", "orchestrate workers".
-version: 1.1.0
+version: 1.2.0
 ---
 
 # Orchestrating parallel agents
@@ -32,7 +32,7 @@ This skill exists because some features split cleanly into independent file scop
 - Sequential dependencies that can't be broken (e.g. each step needs the previous step's commit).
 - Refactors that touch many files (workers' scopes will overlap).
 - Tasks under 30 minutes total (manual sequential is faster).
-- 5+ workers (tmux tiled layout breaks down; consider splitting into two passes).
+- More than 5 workers — soft default cap (v1.2). 5 + coordinator = 6 panes is comfortable on a 1440p+ display, tight on a typical laptop. The skill warns and asks for explicit confirmation when N > 5; consider splitting into two passes (3+3 or 4+4) instead of one wide fan-out.
 
 ## Architecture (one-paragraph)
 
@@ -63,15 +63,18 @@ Per worker, gather: name (slug), scope files (which paths), task summary (2-3 se
 
 Optional: pre-staging spec (if any worker imports another's not-yet-committed output). See `references/lessons-from-the-trenches.md` § L8.
 
-### Step C.5 — Discover agents and match best fit (v1.1)
+**Soft cap warning (v1.2):** if the user requests more than 5 workers, surface an `AskUserQuestion` explaining the tradeoff (6+1 panes get cramped on typical screens; consider splitting into two passes of 3+3 or 4+4) and proceed only on explicit confirmation. The cap is advisory, not enforced — a determined operator on a wide display can run 6, 7, or more.
 
-1. **Discover.** Glob `~/.claude/agents/*.md` and `~/.claude/agents/*/AGENT.md`. For each file, parse YAML frontmatter and extract `name` + `description`. Build a registry. If empty, skip matching — every worker gets `GENERIC`.
-2. **Match.** For each worker, run the matching prompt from `references/agent-matching.md` (one LLM call per worker; sonnet is sufficient). Parse the JSON response: `{agent, confidence, rationale}`.
-3. **Validate.** The returned `agent` MUST exist character-for-character in the registry, or be the literal `"GENERIC"`. Otherwise, downgrade to `GENERIC` and log.
-4. **Escalate low confidence.** For every worker whose confidence is `low`, surface to the operator via `AskUserQuestion`: present the matcher's pick, 1–2 next-best candidates, and `GENERIC`. Operator's choice overrides.
-5. **Stash.** Persist `worker.matched_agent` (string) and `worker.match_confidence` (string) for downstream rendering in Steps D and F.
+### Step C.5 — Discover agents and match best fit (v1.1, extended in v1.2)
 
-Full procedure, prompt text, JSON schema, and defenses: `references/agent-matching.md`.
+1. **Discover.** Glob `~/.claude/agents/*.md` and `~/.claude/agents/*/AGENT.md`. For each file, parse YAML frontmatter and extract `name` + `description`. Build a registry. If empty, skip matching — every worker AND the coordinator get `GENERIC`.
+2. **Match each worker.** For each worker, run the matching prompt from `references/agent-matching.md` (one LLM call per worker; sonnet is sufficient). Parse the JSON response: `{agent, confidence, rationale}`.
+3. **Match the coordinator (v1.2).** Run the matcher one more time with the canned coordinator task brief documented in `references/agent-matching.md` § "Coordinator matching". Expected result on most registries: `project-supervisor-orchestrator` at high confidence. Stash as `coordinator_matched_agent`.
+4. **Validate.** Each returned `agent` MUST exist character-for-character in the registry, or be the literal `"GENERIC"`. Otherwise, downgrade to `GENERIC` and log.
+5. **Escalate low confidence.** For every worker (or coordinator) whose confidence is `low`, surface to the operator via `AskUserQuestion`: present the matcher's pick, 1–2 next-best candidates, and `GENERIC`. Operator's choice overrides.
+6. **Stash.** Persist per-worker `matched_agent` + `match_confidence`, plus `coordinator_matched_agent` + `coordinator_match_confidence`, for downstream rendering in Steps D, E, and F.
+
+Full procedure, prompt text, JSON schema, defenses, and the canned coordinator brief: `references/agent-matching.md`.
 
 ### Step D — Render `scripts/launch-team.sh`
 
@@ -87,7 +90,11 @@ Write to `<repo>/scripts/launch-team.sh`. `chmod +x`.
 
 ### Step E — Render coordinator prompt
 
-Read `templates/coordinator.template.md` and substitute. See `workflows/full-orchestration.md` Step 3 for the full placeholder mapping.
+Read `templates/coordinator.template.md` and substitute, including v1.2's `{{MATCHED_AGENT_BLOCK}}` (rendered from `coordinator_matched_agent` — empty when GENERIC, otherwise a "Recommended specialist" block instructing `Agent(subagent_type=…)`).
+
+The launcher template's `{{COORDINATOR_AGENT}}` placeholder also resolves from `coordinator_matched_agent` (string, or `"GENERIC"`).
+
+See `workflows/full-orchestration.md` Step 3 for the full placeholder mapping.
 
 Write to `<repo>/.claude/team-prompts/coordinator.md`.
 

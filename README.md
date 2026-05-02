@@ -33,6 +33,12 @@ The matched agent appears:
 
 Low-confidence matches surface to the operator via a follow-up prompt, listing the top candidates plus `GENERIC`. See `skills/orchestrating-parallel-agents/references/agent-matching.md` for the matching prompt design and defenses (injection guard, hallucination guard, empty-registry handling).
 
+### v1.2 — Coordinator matching + 5-worker soft cap
+
+The matcher now also picks an orchestrator-class agent for the coordinator pane (typically `project-supervisor-orchestrator` if you have it installed). The coordinator's TASK gets the same `## Recommended specialist:` header pattern as workers, instructing it to delegate the merge / verify / push / PR sequence via the `Agent` tool.
+
+The maximum worker count is also raised: `5 workers + 1 coordinator = 6 panes`, fitting comfortably on a 1440p+ display and tight-but-workable on a typical laptop. The skill warns and asks for confirmation when the operator requests more than 5 — the cap is advisory, not enforced.
+
 ## What you get
 
 ```
@@ -147,7 +153,7 @@ The bare-repo case lets the plugin run on language-agnostic repos including this
 - Sequential dependencies that can't be broken
 - Refactors touching many overlapping files
 - Tasks under ~30 minutes total
-- 5+ workers (tmux tiled layout breaks down past 4)
+- More than 5 workers — soft default cap as of v1.2; can be overridden after explicit confirmation. Wide teams cramp the tiled layout on smaller displays.
 
 ## License
 

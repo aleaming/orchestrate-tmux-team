@@ -27,19 +27,21 @@ Optional team-level questions:
 - **Pre-staging?** "Does any worker import from another worker's not-yet-committed file?" If yes, ask for source path, target workers, and dest relative path. Default: none.
 - **Auto-launch policy?** Three options: manual / auto-without-flag / auto-with-`--dangerously-skip-permissions`. Default: manual. (See L7.)
 
-## Step 2.5 — Discover agents and match (v1.1)
+## Step 2.5 — Discover agents and match (v1.1, extended in v1.2)
 
-Sits between elicitation (Step 2) and rendering (Step 3). Three substeps:
+Sits between elicitation (Step 2) and rendering (Step 3). Four substeps:
 
-1. **Discover.** Glob `~/.claude/agents/*.md` and `~/.claude/agents/*/AGENT.md`. Parse YAML frontmatter; build registry of `{name, description}`. If empty, every worker gets `matched_agent = "GENERIC"` and skip the rest.
+1. **Discover.** Glob `~/.claude/agents/*.md` and `~/.claude/agents/*/AGENT.md`. Parse YAML frontmatter; build registry of `{name, description}`. If empty, every worker AND the coordinator get `matched_agent = "GENERIC"` and skip the rest.
 
-2. **Match.** For each worker, run the matcher prompt from `references/agent-matching.md` (one LLM call per worker; sonnet is sufficient). Parse JSON: `{agent, confidence, rationale}`. Validate `agent` against the registry; downgrade unrecognized names to `GENERIC`.
+2. **Match each worker.** For each worker, run the matcher prompt from `references/agent-matching.md` (one LLM call per worker; sonnet is sufficient). Parse JSON: `{agent, confidence, rationale}`. Validate `agent` against the registry; downgrade unrecognized names to `GENERIC`.
 
-3. **Escalate.** For each `confidence == "low"` worker, present the operator with an `AskUserQuestion` listing the matcher's pick + 1–2 next-best candidates + `GENERIC`. Operator's choice wins.
+3. **Match the coordinator (v1.2).** Run the matcher one more time with the canned coordinator task brief documented in `references/agent-matching.md` § "Coordinator matching". Expected match on most registries: `project-supervisor-orchestrator` (high confidence).
 
-Output: each worker carries `matched_agent` (string) and `match_confidence` (string) into Step 3 rendering.
+4. **Escalate.** For each `confidence == "low"` result (worker or coordinator), present the operator with an `AskUserQuestion` listing the matcher's pick + 1–2 next-best candidates + `GENERIC`. Operator's choice wins.
 
-Full procedure, prompt text, defenses (injection guard, hallucination guard, empty-registry handling): `references/agent-matching.md`.
+Output: each worker carries `matched_agent` and `match_confidence`; in addition, `coordinator_matched_agent` and `coordinator_match_confidence` are stashed for the coordinator pane.
+
+Full procedure, prompt text, canned coordinator brief, defenses (injection guard, hallucination guard, empty-registry handling): `references/agent-matching.md`.
 
 ## Step 3 — Render artifacts
 
@@ -55,6 +57,7 @@ Render from `templates/launch-team.template.sh`. Substitutions:
 | `{{WORKTREE_PREFIX}}` | `<feature-name>` |
 | `{{BRANCH_PREFIX}}` | `feature/<feature-name>-` (or whatever the parent branch is + `-`) |
 | `{{COORD_COLOR}}` | `226` (yellow) |
+| `{{COORDINATOR_AGENT}}` | v1.2 — orchestrator-class agent name from coordinator matching, or `"GENERIC"` |
 | `{{WORKERS}}` | One line per worker: `"<name>\|<branch-suffix>\|<color-256>\|<matched-agent-or-GENERIC>"` (4-field schema, v1.1) |
 | `{{STAGED_FILES}}` | Pre-staging spec lines, or empty |
 
@@ -76,6 +79,7 @@ Render from `templates/coordinator.template.md`. Substitutions:
 | `{{PR_TITLE}}` | derived from feature name; user can override |
 | `{{PR_BODY_FILE}}` | path to plan file if known, else empty |
 | `{{SESSION}}` | as above |
+| `{{MATCHED_AGENT_BLOCK}}` | v1.2 — `## Recommended specialist:` block when `coordinator_matched_agent != "GENERIC"`; empty otherwise |
 
 ### `.claude/team-prompts/<worker>.md` (one per worker)
 
