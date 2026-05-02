@@ -1,0 +1,31 @@
+{
+  "name": "orchestrate-tmux-team",
+  "owner": {
+    "name": "Alex Leaming"
+  },
+  "metadata": {
+    "description": "Spawn N parallel Claude Code worker agents in colored tmux panes (each in its own git worktree) with a coordinator pane that merges branches and pushes a single PR. Adds the /spawn-team slash command.",
+    "version": "1.0.0"
+  },
+  "plugins": [
+    {
+      "name": "orchestrate-tmux-team",
+      "source": "./",
+      "version": "1.0.0",
+      "description": "Spawn N parallel Claude Code worker agents in colored tmux panes (each in its own git worktree) with a coordinator pane that merges branches and pushes a single PR. Adds the /spawn-team slash command. Useful for features that split cleanly into 2-4 disjoint workers (separate files, parallel-friendly scopes).",
+      "author": {
+        "name": "Alex Leaming",
+        "email": "aleaming@me.com"
+      },
+      "repository": "https://github.com/aleaming/orchestrate-tmux-team",
+      "license": "MIT",
+      "keywords": [
+        "tmux",
+        "orchestration",
+        "parallel-agents",
+        "git-worktree",
+        "claude-code-plugin"
+      ]
+    }
+  ]
+}

@@ -37,13 +37,26 @@ Each worker pane runs claude in its own colored tmux pane. The coordinator pane 
 
 ## Install
 
-```bash
-gh repo clone aleaming/orchestrate-tmux-team ~/.claude/plugins/orchestrate-tmux-team
+### Option 1 — Claude Code marketplace (recommended)
+
+This repo ships its own `marketplace.json`, so it can be added as a marketplace and installed through Claude's plugin UI:
+
+```
+/plugin marketplace add aleaming/orchestrate-tmux-team
+/plugin install orchestrate-tmux-team
 ```
 
 Restart Claude Code; `/spawn-team` should appear in the slash-command list.
 
-Alternatively, if you've cloned this repo elsewhere, symlink it in:
+### Option 2 — Direct clone
+
+```bash
+gh repo clone aleaming/orchestrate-tmux-team ~/.claude/plugins/orchestrate-tmux-team
+```
+
+### Option 3 — Symlink (for plugin development)
+
+If you've cloned this repo elsewhere and want to develop on it locally:
 
 ```bash
 ln -s /path/to/orchestrate-tmux-team ~/.claude/plugins/orchestrate-tmux-team
