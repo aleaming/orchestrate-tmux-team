@@ -163,10 +163,13 @@ created_branches=()
 on_launch_fail() {
   echo "" >&2
   echo "✗ Launch failed; rolling back partial state…" >&2
-  for wt in "${created_worktrees[@]}"; do
+  # bash 3.2 (macOS default) errors on "${empty_array[@]}" under `set -u`,
+  # which would silently abort this very rollback. The +alt expansion is the
+  # canonical bash-3.2-compatible "expand only if set" idiom.
+  for wt in ${created_worktrees[@]+"${created_worktrees[@]}"}; do
     git -C "$REPO_ROOT" worktree remove --force "$wt" 2>/dev/null || rm -rf "$wt"
   done
-  for br in "${created_branches[@]}"; do
+  for br in ${created_branches[@]+"${created_branches[@]}"}; do
     git -C "$REPO_ROOT" branch -D "$br" 2>/dev/null || true
   done
   tmux kill-session -t "$SESSION" 2>/dev/null || true
@@ -216,8 +219,20 @@ cmd_launch() {
       created_worktrees+=("$wt")
       created_branches+=("$br")
       echo "  + worktree: $wt  (branch: $br)"
-    else
+    elif [[ -e "$wt/.git" ]] ; then
+      # A real worktree has a `.git` file ("gitdir: ...") at its root, so
+      # `-e $wt/.git` is true. A stale non-worktree directory at $wt has no
+      # such marker. (We can't use `git rev-parse --is-inside-work-tree`
+      # here — it returns true for ANY path under the parent repo, which
+      # would defeat the guard.)
       echo "  = worktree exists: $wt"
+    else
+      # Stale non-worktree directory in the way (e.g. a failed prior run that
+      # left orphan files, or an unrelated dir at this path). Fail fast with an
+      # actionable error instead of silently using it as if it were a worktree.
+      echo "✗ Path '$wt' exists but is not a git worktree." >&2
+      echo "  Either remove it manually, or run: bash $0 --cleanup" >&2
+      exit 1
     fi
     cp "$PROMPT_DIR/$name.md" "$wt/TASK.md"
     # Seed STATUS.md so cmd_status shows PENDING immediately.
@@ -225,7 +240,9 @@ cmd_launch() {
   done
 
   # L8 — pre-stage cross-worker compile dependencies, if any.
-  for spec in "${STAGED_FILES[@]}"; do
+  # +alt expansion: under `set -u`, bash 3.2 errors on "${empty_array[@]}".
+  # STAGED_FILES is empty in the no-pre-staging case (the common case).
+  for spec in ${STAGED_FILES[@]+"${STAGED_FILES[@]}"}; do
     [[ -z "$spec" ]] && continue
     IFS='|' read -r src targets dest <<< "$spec"
     IFS=',' read -ra worker_list <<< "$targets"

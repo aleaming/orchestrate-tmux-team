@@ -8,7 +8,7 @@ description: >
   Generates the launcher script + prompt templates per project. Triggers on:
   "spawn a team", "/spawn-team", "parallel agents", "tmux orchestration",
   "agent team", "worker team", "orchestrate workers".
-version: 1.2.0
+version: 1.2.1
 ---
 
 # Orchestrating parallel agents
